@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xsi:schemaLocation="
+        http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+        http://www.springframework.org/schema/context/spring-context.xsd
+        http://www.springframework.org/schema/aop
+        http://www.springframework.org/schema/aop/spring-aop.xsd
+        http://www.springframework.org/schema/tx
+        http://www.springframework.org/schema/tx/spring-tx.xsd">
+    <context:component-scan base-package="com.dlh">
+        <context:exclude-filter type="annotation"
+                                expression="org.springframework.stereotype.Controller"/>
+    </context:component-scan>
+
+    <context:property-placeholder location="classpath:db.properties"/>
+
+    <!-- 配置数据源 -->
+    <bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+        <!-- 类似于el 表达式 -->
+        <property name="driverClass" value="${JDBC.driver}"/>
+        <property name="jdbcUrl" value="${JDBC.url}"/>
+        <property name="user" value="${JDBC.username}"/>
+        <property name="password" value="${JDBC.password}"/>
+    </bean>
+
+
+    <bean id="sessionFactory"
+          class="org.springframework.orm.hibernate4.LocalSessionFactoryBean">
+        <property name="dataSource" ref="dataSource"/>
+        <property name="hibernateProperties">
+            <props>
+                <prop key="hibernate.dialect">${hibernate.dialect}</prop>
+                <prop key="hibernate.hbm2ddl.auto">${hibernate.hbm2ddl.auto}</prop>
+                <prop key="hibernate.show_sql">${hibernate.show_sql}</prop>
+                <prop key="hibernate.format_sql">${hibernate.format_sql}</prop>
+                <prop key="hibernate.connection.useUnicode">${hibernate.connection.useUnicode}</prop>
+                <prop key="hibernate.connection.characterEncoding">${hibernate.connection.characterEncodingtrue}</prop>
+            </props>
+        </property>
+        <property name="packagesToScan">
+            <list>
+                <value>com.dlh.entity</value>
+            </list>
+        </property>
+    </bean>
+    <!-- ========================================事物配置========================================= -->
+
+    <!--
+       DataSourceTransactionManager 和HibernateTransactionManager 区别
+         详情见  http://blog.csdn.net/hiyohu/article/details/51539845
+          DataSourceTransactionManager：此事务管理器是针对传统的JDBC进行事务管理，在spring中是对JdbcTemplate进行事务管理
+          HibernateTransactionManager：是对hibernate进行事务管理，当在spring中使用HibernateTemplate时，要使用此管理器。
+      最终保证拿到同一个connection！！！
+     -->
+    <!-- 指定事物管理器 -->
+    <bean id="txManager"
+          class="org.springframework.orm.hibernate4.HibernateTransactionManager">
+        <property name="sessionFactory" ref="sessionFactory"/>
+    </bean>
+
+    <!-- 设置事物增强 -->
+    <tx:advice id="txAdvice" transaction-manager="txManager">
+        <tx:attributes>
+            <tx:method name="get*" read-only="true"/>
+            <tx:method name="find*" read-only="true"/>
+            <tx:method name="query*" read-only="true"/>
+            <tx:method name="load*" read-only="true"/>
+            <tx:method name="add*" propagation="REQUIRED" rollback-for="Exception"/>
+            <tx:method name="insert*" propagation="REQUIRED"
+                       rollback-for="Exception"/>
+            <tx:method name="save*" propagation="REQUIRED"
+                       rollback-for="Exception"/>
+            <tx:method name="update*" propagation="REQUIRED"
+                       rollback-for="Exception"/>
+            <tx:method name="delete*" propagation="REQUIRED"
+                       rollback-for="Exception"/>
+        </tx:attributes>
+    </tx:advice>
+    <aop:config>
+        <aop:pointcut id="servicePointcut" expression="execution(* com.dlh.service..*(..))"/>
+        <aop:advisor advice-ref="txAdvice" pointcut-ref="servicePointcut"/>
+    </aop:config>
+    <!-- 模板类配置 -->
+    <bean id="hibernateTemplate" class="org.springframework.orm.hibernate4.HibernateTemplate">
+        <property name="sessionFactory" ref="sessionFactory"/>
+        <property name="checkWriteOperations" value="false"/>
+    </bean>
+</beans>
